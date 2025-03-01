@@ -124,30 +124,29 @@ router.post('/check-status', async (req, res) => {
 
     try {
         const { pollUrl } = req.body;
-        let attempts = 0;
-        const timeout = 15;
-        
-        while (attempts < timeout) {
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            const status = await paynow.pollTransaction(pollUrl);
-            console.log(status);
+        const status = await paynow.pollTransaction(pollUrl);
+        console.log(status);
 
-            // Check if status is 'paid'
-            if (status.status === "paid") {
-                await PayCourse.findOneAndUpdate({ pollUrl }, { paymentStatus: "Paid" });
-                return res.json({ message: "Transaction successful." });
-            }
-            if (status.status === "created") {
-                return res.json({ message: "Transaction intiated but no payment has been made" });
-            }
-            attempts++;
+        if (status.status === "paid") {
+            await PayCourse.findOneAndUpdate({ pollUrl }, { paymentStatus: "Paid" });
+            return res.status(200).json({ status: status.status, message: "Transaction successful." });
+        } else if (status.status === "created") {
+            return res.status(202).json({ status: status.status, message: "Transaction initiated but no payment has been made." });
+        } 
+        else if (status.status === "cancelled") {
+            return res.status(202).json({ status: status.status, message: "Transaction initiated and cancelled." });
+        } 
+        else if (status.status === "sent") {
+            return res.status(202).json({ status: status.status, message: "Transaction sent to client for payment." });
+        } 
+        else {
+            return res.status(400).json({ status: status.status, message: "Transaction status unknown or failed." });
         }
-        
-        res.status(408).json({ error: "Transaction timeout reached." });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
+
 
 
 // Get all PayCourse records by customerEmail
